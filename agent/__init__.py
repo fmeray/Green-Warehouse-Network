@@ -1,0 +1,1 @@
+"""Plain-English scenario layer."""
