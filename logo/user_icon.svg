@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Person on a bicycle">
+  <rect width="64" height="64" rx="14" fill="#D8F3DC"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#2D6A4F" stroke-width="2.6">
+      <circle cx="16" cy="45" r="9"/>
+      <circle cx="48" cy="45" r="9"/>
+      <path d="M16 45 L27 32 L40 32 L31 45 Z"/>
+      <path d="M27 32 L31 45"/>
+      <path d="M40 32 L48 45"/>
+      <path d="M40 32 L38 28 L43 28"/>
+      <path d="M24 30 L30 30"/>
+    </g>
+    <g stroke="#1B4332" stroke-width="3.4">
+      <path d="M27 29 L35 19"/>
+      <path d="M35 20 L43 28"/>
+      <path d="M27 29 L34 36 L31 45"/>
+    </g>
+  </g>
+  <circle cx="38.5" cy="13" r="4.6" fill="#1B4332"/>
+  <circle cx="31" cy="45" r="2" fill="#52B788"/>
+</svg>

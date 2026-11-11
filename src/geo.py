@@ -1,5 +1,6 @@
 """Geocoding and customer-to-site distance calculations."""
 from functools import lru_cache
+import csv
 from hashlib import sha256
 import json
 from math import radians, sin, cos, asin, sqrt, isfinite
@@ -12,14 +13,37 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:  # Keep the core runnable before optional dependencies install.
+    def load_dotenv(*args, **kwargs):
+        return False
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
+if not os.getenv("OpenRoute_API_KEY", "").strip():
+    env_path = ROOT / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 _nominatim_lock = Lock()
 _last_nominatim_request = 0.0
 _cache_dir = ROOT / "data" / "cache"
+_last_distance_status = {"source": "unknown"}
+
+
+def _cached_customer_ids():
+    """IDs present in the static matrix input; scenario additions are local."""
+    try:
+        with (ROOT / "data" / "customers.csv").open(encoding="utf-8", newline="") as handle:
+            return {row["id"] for row in csv.DictReader(handle)}
+    except (OSError, KeyError):
+        return set()
 
 
 class ExternalAPIError(RuntimeError):
@@ -37,7 +61,12 @@ def _request_json(request, service):
         with urlopen(request, timeout=30) as response:
             return json.loads(response.read())
     except HTTPError as exc:
-        raise ExternalAPIError(f"{service} request failed with HTTP {exc.code}") from exc
+        body = exc.read().decode("utf-8", errors="replace")
+        try:
+            message = json.loads(body).get("error") or json.loads(body).get("message") or body
+        except (TypeError, json.JSONDecodeError):
+            message = body
+        raise ExternalAPIError(f"{service} request failed with HTTP {exc.code}: {message}") from exc
     except URLError as exc:
         raise ExternalAPIError(f"{service} request failed: {exc.reason}") from exc
     except json.JSONDecodeError as exc:
@@ -70,7 +99,7 @@ def _geocode_cached(query, endpoint, user_agent):
 
     parts = urlsplit(endpoint)
     params = dict(parse_qsl(parts.query))
-    params.update({"q": query, "format": "jsonv2", "limit": "1"})
+    params.update({"q": query, "format": "jsonv2", "limit": "1", "countrycodes": "de"})
     url = urlunsplit(
         (parts.scheme, parts.netloc, parts.path, urlencode(params), parts.fragment)
     )
@@ -119,9 +148,10 @@ def _validate_matrix(matrix, customers, sites):
 
 
 def _openroute_distance_matrix(customers, sites):
+    global _last_distance_status
     endpoint = os.getenv(
         "OPENROUTE_MATRIX_URL",
-        "https://api.openrouteservice.org/v2/matrix/driving-car",
+        "https://api.openrouteservice.org/v2/matrix/driving-hgv",
     ).strip()
     cache_key = _distance_cache_key(customers, sites, endpoint)
     cache_path = _cache_dir / f"distance-{cache_key}.json"
@@ -131,49 +161,12 @@ def _openroute_distance_matrix(customers, sites):
         except (OSError, json.JSONDecodeError) as exc:
             raise ExternalAPIError("Could not read the cached route matrix.") from exc
         matrix = _validate_matrix(cached, customers, sites)
+        _last_distance_status = {"source": "openrouteservice_cache", "cache": str(cache_path)}
     else:
-        locations = [
-            [c["lon"], c["lat"]] for c in customers
-        ] + [[s["lon"], s["lat"]] for s in sites]
-        payload = {
-            "locations": locations,
-            "sources": [str(i) for i in range(len(customers))],
-            "destinations": [
-                str(i) for i in range(len(customers), len(locations))
-            ],
-            "metrics": ["distance"],
-        }
-        request = Request(
-            endpoint,
-            data=json.dumps(payload).encode(),
-            headers={
-                "Authorization": os.environ["OpenRoute_API_KEY"].strip(),
-                "Content-Type": "application/json",
-            },
-            method="POST",
+        raise ExternalAPIError(
+            "No cached OpenRouteService distance matrix is available; "
+            "the solver does not call OpenRouteService at runtime."
         )
-        response = _request_json(request, "OpenRouteService")
-        if not isinstance(response, dict) or "distances" not in response:
-            raise ExternalAPIError(
-                "OpenRouteService response did not contain a distance matrix."
-            )
-        # The Matrix API returns distances in meters unless units are requested.
-        matrix = [
-            [distance / 1000 for distance in row]
-            for row in _validate_matrix(
-                response["distances"], customers, sites
-            )
-        ]
-        _cache_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", encoding="utf-8", dir=_cache_dir, delete=False
-            ) as cache_file:
-                json.dump(matrix, cache_file)
-                temporary_path = Path(cache_file.name)
-            temporary_path.replace(cache_path)
-        except OSError as exc:
-            raise ExternalAPIError("Could not cache the route matrix.") from exc
 
     return {
         customer["id"]: {
@@ -185,7 +178,39 @@ def _openroute_distance_matrix(customers, sites):
 
 
 def distance_matrix(customers, sites):
-    api_key = os.getenv("OpenRoute_API_KEY", "").strip()
-    if api_key:
-        return _openroute_distance_matrix(customers, sites)
-    return {c['id']:{s['id']:haversine(c['lat'],c['lon'],s['lat'],s['lon']) for s in sites} for c in customers}
+    global _last_distance_status
+    static_ids = _cached_customer_ids()
+    routed = [customer for customer in customers if customer["id"] in static_ids]
+    estimated = [customer for customer in customers if customer["id"] not in static_ids]
+    try:
+        matrix = _openroute_distance_matrix(routed, sites) if routed else {}
+        for customer in estimated:
+            matrix[customer["id"]] = {
+                site["id"]: 1.3 * haversine(customer["lat"], customer["lon"], site["lat"], site["lon"])
+                for site in sites
+            }
+        if estimated:
+            _last_distance_status["estimated_customer_ids"] = [customer["id"] for customer in estimated]
+        return matrix
+    except ExternalAPIError as exc:
+        # Distances are prepared data. A missing cache is estimated locally;
+        # the solver never reaches out to OpenRouteService during a run.
+        _last_distance_status = {
+            "source": "haversine_fallback",
+            "error_type": "tool_failure",
+            "code": "distance_cache_unavailable",
+            "details": [f"{exc} Haversine distance × 1.3 was used instead."],
+            "suggested_fix": {"fallback": "haversine distance × 1.3"},
+        }
+        return {
+            customer["id"]: {
+                site["id"]: 1.3 * haversine(customer["lat"], customer["lon"], site["lat"], site["lon"])
+                for site in sites
+            }
+            for customer in customers
+        }
+
+
+def distance_status():
+    """Return provenance for the most recent distance calculation."""
+    return dict(_last_distance_status)

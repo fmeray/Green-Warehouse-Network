@@ -38,10 +38,23 @@ def sites():
 
 
 def emission_factors():
-    return {
-        row["mode"]: float(row["value"])
-        for row in _read_csv("emission_factors.csv")
-    }
+    """Return factors in g CO2e per tonne-km.
+
+    The current data contract calls the value ``g_co2e_per_tkm``.  ``value``
+    is still accepted so older project data can be used without a migration.
+    """
+    factors = {}
+    for row in _read_csv("emission_factors.csv"):
+        value = row.get("g_co2e_per_tkm", row.get("value"))
+        if value in (None, ""):
+            continue
+        factors[row["mode"].strip().lower()] = float(value)
+    return factors
+
+
+def emission_factor_records():
+    """Return the full factor rows, including Climatiq provenance metadata."""
+    return _read_csv("emission_factors.csv")
 
 
 def validate_data():
@@ -54,13 +67,13 @@ def validate_data():
     if sum(s["capacity"] for s in ss) < 2 * sum(c["demand"] for c in cs):
         errors.append("total capacity below 2x demand")
     for customer in cs:
-        if not -90 <= customer["lat"] <= 90 or not -180 <= customer["lon"] <= 180:
-            errors.append(f"invalid coordinates for customer {customer['id']}")
+        if not 47.2 <= customer["lat"] <= 55.1 or not 5.8 <= customer["lon"] <= 15.1:
+            errors.append(f"customer {customer['id']} is outside the Germany bounds")
         if customer["demand"] <= 0:
             errors.append(f"non-positive demand for customer {customer['id']}")
     for site in ss:
-        if not -90 <= site["lat"] <= 90 or not -180 <= site["lon"] <= 180:
-            errors.append(f"invalid coordinates for site {site['id']}")
+        if not 47.2 <= site["lat"] <= 55.1 or not 5.8 <= site["lon"] <= 15.1:
+            errors.append(f"site {site['id']} is outside the Germany bounds")
         if site["capacity"] <= 0:
             errors.append(f"non-positive capacity for site {site['id']}")
     return {
