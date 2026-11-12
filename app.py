@@ -16,7 +16,7 @@ from src.data import customers as load_customers, sites as load_sites
 from src.map import plot_customers_only, plot_network_solutions
 from src.schema import scenario_from_dict
 
-ASSET_DIR = Path(__file__).with_name("logo")
+ASSET_DIR = Path(__file__).with_name("assets")
 LOGO_PATH = ASSET_DIR / "logo_icon.svg"
 USER_ICON_PATH = ASSET_DIR / "user_icon.svg"
 

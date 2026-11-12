@@ -299,6 +299,9 @@ green-warehouse/
 ├── data/          customers.csv, candidate_sites.csv, emission_factors.csv, distance_matrix.csv (cached)
 ├── src/           distances, emissions, baseline, model, simulate, tools, diff, report
 ├── agent/         schema.py, graph.py, prompts.py
+├── assets/        UI icons and static media
+├── reports/       generated report examples and exports
+├── docs/          specification, decisions, roadmap, and presentation
 ├── tests/         solver, failure, diff and agent tests
 ├── .streamlit/    config.toml (green theme)
 ├── app.py         Streamlit dashboard

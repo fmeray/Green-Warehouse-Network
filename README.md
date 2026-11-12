@@ -2,7 +2,7 @@
 
 Green Warehouse Network is a deterministic Germany-wide warehouse-network planner. Given 24 customers, 12 candidate warehouses, demand, capacity, distance, cost, and emissions inputs, it selects a resilient network with a primary and backup warehouse for every customer. Users can optimize for CO₂ or cost, test warehouse closures and operating assumptions, inspect k-curves, compare scenarios, and download an HTML report.
 
-The MVP combines a Streamlit dashboard, a LangGraph conversational agent, and a PuLP/CBC optimization model. See [stack_decision.md](stack_decision.md) for the rationale and [gtm_future_sprints.md](gtm_future_sprints.md) for the next GTM experiments.
+The MVP combines a Streamlit dashboard, a LangGraph conversational agent, and a PuLP/CBC optimization model. See [the architecture decision](docs/stack_decision.md) for the rationale and [the GTM roadmap](docs/gtm_future_sprints.md) for the next experiments.
 
 ## Setup
 
@@ -87,6 +87,19 @@ The normal request flow is:
 - The agent compares the new result with the previous result, explains assignment and metric changes, and saves completed scenarios for the dashboard.
 - The UI renders the map and metrics. An optional LLM report is generated from the recorded session events; it does not replace solver output.
 
+The repository follows a layered AI-engineer layout:
+
+```text
+app.py       Streamlit entry point
+agent/       conversational orchestration and LLM-facing schemas
+src/         deterministic domain logic, tools, solver, data access, and maps
+data/        source CSVs and runtime distance cache
+assets/      UI icons and other static media
+reports/     generated report examples and exports
+docs/        specification, architecture decisions, roadmap, and presentation
+tests/       automated tests
+```
+
 ## File map
 
 | Path | Responsibility |
@@ -106,8 +119,12 @@ The normal request flow is:
 | `data/emission_factors.csv` | Diesel/electric emissions factors |
 | `data/cache/` | Prepared distance matrix cache used at runtime when available |
 | `tests/` | Solver-path, agent-error, and intent-paraphrase tests |
-| `stack_decision.md` | Primary LangGraph versus secondary n8n decision |
-| `gtm_future_sprints.md` | Three future GTM sprints after the MVP |
+| `assets/` | UI icons and static media |
+| `reports/` | Generated report examples and exports |
+| `docs/Spec.md` | Product and technical specification |
+| `docs/stack_decision.md` | Primary LangGraph versus secondary n8n decision |
+| `docs/gtm_future_sprints.md` | Three future GTM sprints after the MVP |
+| `docs/GWN_PPT.pdf` | Project presentation |
 
 ## Scenario API
 
