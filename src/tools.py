@@ -6,7 +6,12 @@ import json
 from .data import customers as base_customers, emission_factors, sites
 from .geo import distance_matrix, distance_status, haversine
 from .model import solve
-from .schema import Scenario, scenario_from_dict
+from .schema import (
+    SCENARIO_RANGE_LABELS,
+    SCENARIO_RANGES,
+    Scenario,
+    scenario_from_dict,
+)
 
 SAVED_SCENARIOS = {}
 SCENARIO_CACHE = {}
@@ -37,21 +42,11 @@ def _schema_error(exc):
     field = location[0] if isinstance(location, (list, tuple)) and location else location
     if field is None:
         message = str(exc)
-        known = (
-            "capacity_scale", "demand_scale", "emission_factor_scale",
-            "warehouse_co2_scale", "carbon_price_eur_per_t",
-            "transport_cost_eur_per_tkm", "max_backup_km",
-            "failure_probability", "objective", "emission_mode", "k",
-        )
+        known = (*SCENARIO_RANGES, "objective", "emission_mode", "k")
         field = next((name for name in known if name in message), None)
-    allowed = {
-        "capacity_scale": "0.5 to 2.0", "demand_scale": "0.5 to 3.0",
-        "emission_factor_scale": "0.1 to 2.0", "warehouse_co2_scale": "0.5 to 2.0",
-        "carbon_price_eur_per_t": "0 to 500",
-        "transport_cost_eur_per_tkm": "0.01 to 1.0",
-        "max_backup_km": "50 to 2000", "failure_probability": "0 to 0.5",
-        "k": "2 to number of sites",
-    }.get(field)
+    allowed = SCENARIO_RANGE_LABELS.get(field)
+    if field == "k":
+        allowed = "2 to number of sites"
     return _error(
         "validation", "out_of_range" if allowed else "invalid_scenario",
         field=field, value=first.get("input"), allowed=allowed, details=raw,
@@ -85,20 +80,16 @@ def validate_scenario(params=None):
     candidate_sites = sites()
     site_ids = {site["id"] for site in candidate_sites}
     customers, _ = _materialize(scenario)
-    ranges = [
-        ("capacity_scale", scenario.capacity_scale, .5, 2),
-        ("demand_scale", scenario.demand_scale, .5, 3),
-        ("emission_factor_scale", scenario.emission_factor_scale, .1, 2),
-        ("warehouse_co2_scale", scenario.warehouse_co2_scale, .5, 2),
-        ("carbon_price_eur_per_t", scenario.carbon_price_eur_per_t, 0, 500),
-        ("transport_cost_eur_per_tkm", scenario.transport_cost_eur_per_tkm, .01, 1),
-        ("max_backup_km", scenario.max_backup_km, 50, 2000),
-        ("failure_probability", scenario.failure_probability, 0, .5),
-    ]
-    for name, value, low, high in ranges:
+    for name, (low, high) in SCENARIO_RANGES.items():
+        value = getattr(scenario, name)
         if not low <= value <= high:
             message = f"{name} must be between {low} and {high}"
-            field_errors.append({"field": name, "value": value, "allowed": f"{low} to {high}", "message": message})
+            field_errors.append({
+                "field": name,
+                "value": value,
+                "allowed": SCENARIO_RANGE_LABELS[name],
+                "message": message,
+            })
             errors.append(message)
     if scenario.objective not in {"co2", "cost"}:
         errors.append("objective must be co2 or cost")

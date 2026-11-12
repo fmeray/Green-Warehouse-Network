@@ -1,7 +1,5 @@
 # Green Warehouse Network: Final Spec
 
-Nov 11, 2026 · @fatma
-
 A tool that chooses warehouse sites with a primary and a backup for every customer, minimizes CO₂ or cost, and lets the user explore what-ifs in chat. This is the simplified version: feature changes stop here, only bug fixes and the acceptance criteria remain.
 
 ## 1. Goal and success criteria

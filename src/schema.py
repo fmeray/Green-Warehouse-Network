@@ -2,6 +2,22 @@
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+SCENARIO_RANGES = {
+    "capacity_scale": (0.5, 2.0),
+    "demand_scale": (0.5, 3.0),
+    "emission_factor_scale": (0.1, 2.0),
+    "warehouse_co2_scale": (0.5, 2.0),
+    "carbon_price_eur_per_t": (0.0, 500.0),
+    "transport_cost_eur_per_tkm": (0.01, 1.0),
+    "max_backup_km": (50.0, 2000.0),
+    "failure_probability": (0.0, 0.5),
+}
+
+SCENARIO_RANGE_LABELS = {
+    name: f"{low:g} to {high:g}"
+    for name, (low, high) in SCENARIO_RANGES.items()
+}
+
 try:
     from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -21,17 +37,17 @@ try:
         close_sites: list[str] = Field(default_factory=list, description="Warehouse IDs or cities to close; synonyms: shut, remove, decommission; unit: sites.")
         force_open_sites: list[str] = Field(default_factory=list, description="Warehouses required to stay open; synonyms: open, require, force open; unit: sites.")
         k: int | None = Field(default=None, ge=2, description="Exact number of open warehouses; synonyms: facilities, warehouse count; unit: warehouses.")
-        capacity_scale: float = Field(default=1.0, ge=0.5, le=2.0, description="Warehouse capacity multiplier; synonyms: capacity change; unit: multiplier.")
-        demand_scale: float = Field(default=1.0, ge=0.5, le=3.0, description="Customer demand multiplier; synonyms: volume, throughput; unit: multiplier, 1.3 means +30%.")
+        capacity_scale: float = Field(default=1.0, ge=SCENARIO_RANGES["capacity_scale"][0], le=SCENARIO_RANGES["capacity_scale"][1], description="Warehouse capacity multiplier; synonyms: capacity change; unit: multiplier.")
+        demand_scale: float = Field(default=1.0, ge=SCENARIO_RANGES["demand_scale"][0], le=SCENARIO_RANGES["demand_scale"][1], description="Customer demand multiplier; synonyms: volume, throughput; unit: multiplier, 1.3 means +30%.")
         remove_customers: list[str] = Field(default_factory=list, description="Customer IDs to exclude; synonyms: remove, drop, exclude; unit: customer IDs.")
         add_customers: list[AddedCustomer] = Field(default_factory=list, description="New customer records; unit: coordinates and tonnes/year.")
         emission_mode: str = Field(default="diesel", description="Vehicle mode: electric for EV, e-trucks, electric fleet; diesel otherwise.")
-        emission_factor_scale: float = Field(default=1.0, ge=0.1, le=2.0, description="Vehicle emissions-factor multiplier; synonyms: emissions factor change; unit: multiplier.")
-        warehouse_co2_scale: float = Field(default=1.0, ge=0.5, le=2.0, description="Fixed warehouse CO2 multiplier; synonyms: facility emissions change; unit: multiplier.")
-        carbon_price_eur_per_t: float = Field(default=80.0, ge=0, le=500, description="Carbon price for reporting; synonyms: carbon tax, CO2 price; unit: EUR per tonne CO2.")
-        transport_cost_eur_per_tkm: float = Field(default=0.10, ge=0.01, le=1.0, description="Transport rate; synonyms: freight rate, trucking cost; unit: EUR per tonne-km.")
-        max_backup_km: float = Field(default=500.0, ge=50, le=2000, description="Maximum primary-to-backup distance; synonyms: backup radius, backup limit; unit: km.")
-        failure_probability: float = Field(default=0.05, ge=0, le=0.5, description="Backup-use probability weight; synonyms: failure risk, outage probability; unit: fraction.")
+        emission_factor_scale: float = Field(default=1.0, ge=SCENARIO_RANGES["emission_factor_scale"][0], le=SCENARIO_RANGES["emission_factor_scale"][1], description="Vehicle emissions-factor multiplier; synonyms: emissions factor change; unit: multiplier.")
+        warehouse_co2_scale: float = Field(default=1.0, ge=SCENARIO_RANGES["warehouse_co2_scale"][0], le=SCENARIO_RANGES["warehouse_co2_scale"][1], description="Fixed warehouse CO2 multiplier; synonyms: facility emissions change; unit: multiplier.")
+        carbon_price_eur_per_t: float = Field(default=80.0, ge=SCENARIO_RANGES["carbon_price_eur_per_t"][0], le=SCENARIO_RANGES["carbon_price_eur_per_t"][1], description="Carbon price for reporting; synonyms: carbon tax, CO2 price; unit: EUR per tonne CO2.")
+        transport_cost_eur_per_tkm: float = Field(default=0.10, ge=SCENARIO_RANGES["transport_cost_eur_per_tkm"][0], le=SCENARIO_RANGES["transport_cost_eur_per_tkm"][1], description="Transport rate; synonyms: freight rate, trucking cost; unit: EUR per tonne-km.")
+        max_backup_km: float = Field(default=500.0, ge=SCENARIO_RANGES["max_backup_km"][0], le=SCENARIO_RANGES["max_backup_km"][1], description="Maximum primary-to-backup distance; synonyms: backup radius, backup limit; unit: km.")
+        failure_probability: float = Field(default=0.05, ge=SCENARIO_RANGES["failure_probability"][0], le=SCENARIO_RANGES["failure_probability"][1], description="Backup-use probability weight; synonyms: failure risk, outage probability; unit: fraction.")
 
         @field_validator("emission_mode")
         @classmethod
@@ -83,18 +99,11 @@ except ImportError:
         failure_probability: float = field(default=0.05, metadata={"description": "Backup-use probability weight; synonyms: failure risk, outage probability; unit: fraction."})
 
         def __post_init__(self):
-            ranges = {
-                "capacity_scale": (.5, 2), "demand_scale": (.5, 3),
-                "emission_factor_scale": (.1, 2), "warehouse_co2_scale": (.5, 2),
-                "carbon_price_eur_per_t": (0, 500),
-                "transport_cost_eur_per_tkm": (.01, 1),
-                "max_backup_km": (50, 2000), "failure_probability": (0, .5),
-            }
             if self.objective not in {"co2", "cost"}:
                 raise ValueError("objective must be co2 or cost")
             if self.emission_mode not in {"diesel", "electric"}:
                 raise ValueError("emission_mode must be diesel or electric")
-            for name, (low, high) in ranges.items():
+            for name, (low, high) in SCENARIO_RANGES.items():
                 if not low <= getattr(self, name) <= high:
                     raise ValueError(f"{name} must be between {low} and {high}")
             if self.k is not None and self.k < 2:

@@ -1,0 +1,128 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Green Warehouse Network report</title><style>body{font-family:Arial,sans-serif;color:#1b4332;max-width:1100px;margin:2rem auto}table{border-collapse:collapse}td,th{border:1px solid #b7d7c4;padding:.4rem;text-align:left}pre{background:#f1f8f4;padding:1rem;overflow:auto}</style></head><body><h1>Green Warehouse Network</h1><h2>Green Warehouse Network Report</h2>
+
+<p><strong>Confirmed Objective:</strong> CO2 Reduction</p>
+
+<h3>Scenario Requests and Results</h3>
+
+<h4>Scenario 1: Default Scenario</h4>
+<p>The first scenario was executed with the objective of reducing CO2 emissions using five warehouses. The results are as follows:</p>
+<ul>
+    <li><strong>Annual Cost:</strong> €1,252,442</li>
+    <li><strong>Total CO₂ Emissions:</strong> 379.229 t</li>
+    <li><strong>Opened Warehouses:</strong> 
+        <ul>
+            <li>W01 - Hamburg logistics hub</li>
+            <li>W04 - Hannover logistics hub</li>
+            <li>W09 - Mannheim logistics hub</li>
+            <li>W10 - Nürnberg logistics hub</li>
+            <li>W11 - Stuttgart logistics hub</li>
+        </ul>
+    </li>
+    <li><strong>Closed Warehouses:</strong> None</li>
+</ul>
+
+<h4>Scenario 2: Closure of Hamburg Site</h4>
+<p>The second scenario involved closing the Hamburg site (W01) and opening Bremen logistics hub (W03). The results were:</p>
+<ul>
+    <li><strong>Annual Cost:</strong> €1,220,676</li>
+    <li><strong>Total CO₂ Emissions:</strong> 397.438 t</li>
+    <li><strong>Opened Warehouses:</strong> 
+        <ul>
+            <li>W03 - Bremen logistics hub</li>
+            <li>W04 - Hannover logistics hub</li>
+            <li>W09 - Mannheim logistics hub</li>
+            <li>W10 - Nürnberg logistics hub</li>
+            <li>W11 - Stuttgart logistics hub</li>
+        </ul>
+    </li>
+    <li><strong>Closed Warehouses:</strong> 
+        <ul>
+            <li>W01 - Hamburg logistics hub</li>
+        </ul>
+    </li>
+</ul>
+
+<h4>Customer Assignment Changes</h4>
+<p>The following table summarizes the changes in customer assignments due to the warehouse adjustments:</p>
+<table>
+    <thead>
+        <tr>
+            <th>Customer</th>
+            <th>Before Primary / Backup</th>
+            <th>After Primary / Backup</th>
+            <th>CO₂ Change (t)</th>
+            <th>Cost Change (€)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Berlin retail</td>
+            <td>W04 / W01</td>
+            <td>W04 / W03</td>
+            <td>0.302</td>
+            <td>243</td>
+        </tr>
+        <tr>
+            <td>Hamburg retail</td>
+            <td>W01 / W04</td>
+            <td>W03 / W04</td>
+            <td>8.421</td>
+            <td>6,791</td>
+        </tr>
+        <tr>
+            <td>Leipzig retail</td>
+            <td>W10 / W04</td>
+            <td>W04 / W10</td>
+            <td>-0.851</td>
+            <td>-687</td>
+        </tr>
+        <tr>
+            <td>Bremen retail</td>
+            <td>W01 / W04</td>
+            <td>W03 / W04</td>
+            <td>-5.053</td>
+            <td>-4,075</td>
+        </tr>
+        <tr>
+            <td>Hannover retail</td>
+            <td>W04 / W01</td>
+            <td>W04 / W03</td>
+            <td>-0.094</td>
+            <td>-76</td>
+        </tr>
+        <tr>
+            <td>Rostock retail</td>
+            <td>W01 / W04</td>
+            <td>W03 / W04</td>
+            <td>4.257</td>
+            <td>3,433</td>
+        </tr>
+        <tr>
+            <td>Kiel retail</td>
+            <td>W01 / W04</td>
+            <td>W03 / W04</td>
+            <td>3.232</td>
+            <td>2,606</td>
+        </tr>
+        <tr>
+            <td>Magdeburg retail</td>
+            <td>W04 / W01</td>
+            <td>W04 / W03</td>
+            <td>0.051</td>
+            <td>41</td>
+        </tr>
+        <tr>
+            <td>Münster retail</td>
+            <td>W04 / W01</td>
+            <td>W03 / W09</td>
+            <td>-0.054</td>
+            <td>-44</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>Feasibility and Warnings</h3>
+<p>Both scenarios were executed successfully without any critical failures. However, the second scenario resulted in a closure of the Hamburg site, which affected customer assignments. The solver encountered a time limit issue in the third scenario, leading to no assignment changes.</p>
+
+<h3>Conclusion</h3>
+<p>The analysis indicates that while the closure of the Hamburg site resulted in a slight reduction in costs, it also led to an increase in CO₂ emissions. The overall impact of the scenarios demonstrates the complexity of balancing cost and emissions in warehouse management. Further adjustments may be necessary to optimize both objectives effectively.</p><p>Distance attribution: © openrouteservice.org by HeiGIT | Map data © OpenStreetMap contributors.</p></body></html>
