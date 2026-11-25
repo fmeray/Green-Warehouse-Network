@@ -1,6 +1,9 @@
 # Green Warehouse Network
 
-[▶ Watch the video demo](docs/Demo_GWN.mp4)
+<video controls width="800">
+  <source src="docs/Demo_GWN.mp4" type="video/mp4">
+  Your browser does not support inline video. [Watch the demo](docs/Demo_GWN.mp4).
+</video>
 
 Green Warehouse Network is a deterministic Germany-wide warehouse-network planner. Given 24 customers, 12 candidate warehouses, demand, capacity, distance, cost, and emissions inputs, it selects a resilient network with a primary and backup warehouse for every customer. Users can optimize for CO₂ or cost, test warehouse closures and operating assumptions, inspect k-curves, compare scenarios, and download an HTML report.
 
