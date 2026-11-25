@@ -1,6 +1,6 @@
-# Green Warehouse Network: Final Spec
+# Green Warehouse Network: Current Implementation Spec
 
-A tool that chooses warehouse sites with a primary and a backup for every customer, minimizes CO₂ or cost, and lets the user explore what-ifs in chat. This is the simplified version: feature changes stop here, only bug fixes and the acceptance criteria remain.
+A tool that chooses warehouse sites with a primary and a backup for every customer, minimizes CO₂ or cost, and lets the user explore what-ifs in chat. This document describes the functionality currently implemented in the repository; planned or unexposed features are not treated as acceptance criteria.
 
 ## 1. Goal and success criteria
 
@@ -54,7 +54,7 @@ Four static inputs in the data/ folder feed the model. The default data has 24 c
 
 Emissions for customer i served from site j: e\[i\]\[j\] = distance\[i\]\[j\] × demand\[i\] × factor ÷ 1,000,000 (t CO₂).
 
-**One-time fetch scripts.** The emission factor script calls Climatiq and stores the result in emission\_factors.csv; check each factor's region tag, because GLEC road factors are tagged for Europe, not Germany. Climatiq's freight endpoint may be a paid feature, so if it is out of reach, fill the file from published GLEC or UBA values. The distance script sends customers and sites to ORS (coordinates as longitude, latitude) and stores kilometres in distance\_matrix.csv. A pair ORS cannot route, and any customer added in a scenario, gets haversine distance × 1.3 and is flagged as estimated. ORS results need this attribution on the dashboard and in the report: © openrouteservice.org by HeiGIT | Map data © OpenStreetMap contributors.
+**Runtime data.** Emission factors are loaded from `data/emission_factors.csv`. Distances are read from the cached files in `data/cache/`; when a pair is unavailable, the application uses a haversine estimate and exposes the distance provenance. ORS attribution is shown in the app and generated report: © openrouteservice.org by HeiGIT | Map data © OpenStreetMap contributors.
 
 **Validation rules**
 
@@ -116,9 +116,7 @@ When several networks tie, the solver adds the other metric with a tiny weight a
 
 **Baseline.** A single center-of-gravity warehouse. Weiszfeld's algorithm gives the demand-weighted centroid, shown on the map. The baseline network is the single candidate site that is best for the chosen objective, counting its fixed cost and fixed CO₂, and it is reported with a "not resilient" flag. Capacity is ignored here so the baseline always exists.
 
-**Failure simulation.** For each customer whose primary is the failed site: extra km = km to the backup minus km to the primary; extra CO₂ (t) = e\[i\]\[backup\] minus e\[i\]\[primary\]. The dashboard shows the sum over the moved customers, with distance in km (not tonne-km). Transport only: fixed cost and fixed CO₂ of the sites stay as they are. It also reports customers moved and any capacity overload on the remaining sites.
-
-**k-sweep (only when asked).** Solve for k = 2 to 5 and return cost and CO₂ for each, plus the best k for the chosen objective.
+**Failure simulation.** For each customer whose primary is the failed site: extra km = km to the backup minus km to the primary; extra CO₂ (t) = e\[i\]\[backup\] minus e\[i\]\[primary\]. The `simulate_failure` tool returns the sum over moved customers, with distance in km (not tonne-km), plus remaining loads and capacity overloads. This is available through the tool layer; it is not a separate Streamlit view.
 
 **Cost of avoiding CO₂ (only when asked).** Solve the scenario once for each objective. The KPI is the extra cost of the CO₂-optimal network divided by the CO₂ it saves, in € per tonne, shown next to the carbon price P.
 
@@ -137,7 +135,6 @@ A scenario is a structured object (a Pydantic model) holding only the parameters
 | Group | Field | Type | Default | Valid range |
 | --- | --- | --- | --- | --- |
 | Objective | objective | co2 or cost | co2 | co2 or cost |
-| Objective | k\_sweep | boolean | false | true or false |
 | Objective | compare\_objectives | boolean | false | true or false |
 | Network | close\_sites | list of site IDs | \[\] | Must exist in candidate\_sites |
 | Network | force\_open\_sites | list of site IDs | \[\] | Must exist; cannot overlap close\_sites |
@@ -153,7 +150,7 @@ A scenario is a structured object (a Pydantic model) holding only the parameters
 | Resilience | max\_backup\_km | float | 500 | 50 to 2000 |
 | Resilience | failure\_probability | float | 0.05 | 0 to 0.5 |
 
-k\_sweep and compare\_objectives each add solves, so the agent sets them only when the user asks for them.
+compare\_objectives adds a second solve, so the agent sets it only when the user asks for it.
 
 **Example translations**
 
@@ -162,7 +159,6 @@ k\_sweep and compare\_objectives each add solves, so the agent sets them only wh
 - "Demand grows 30%" → demand\_scale = 1.3
 - "Compare 3 vs 4 warehouses with backups within 200 km" → two scenarios, k = 3 and k = 4, max\_backup\_km = 200
 - "Minimize cost instead of CO₂" → objective = cost
-- "Show me the cost for 2 to 5 warehouses" → k\_sweep = true
 - "How much does each tonne of CO₂ saved cost?" → compare\_objectives = true
 
 Out-of-range or unknown values are rejected by validation, and the agent asks the user to clarify instead of guessing.
@@ -200,7 +196,7 @@ The agent is a chat. It turns a plain-English request into a validated scenario,
 - The graph uses a checkpointer and a thread ID kept per browser session. Ask the user uses a LangGraph interrupt, so the next message resumes the graph instead of starting a new run.
 - If a request is incomplete or invalid, the graph asks one specific question. For an infeasible result it explains the reason in plain English and proposes one fix; if the user says yes, the fix is applied and the model re-runs.
 - A reset returns the scenario to the baseline.
-- Quick-action buttons for the demo scenarios send their text into the chat, so buttons and typing follow the same path.
+- Scenario requests are entered through the chat. There are no quick-action demo buttons.
 
 **Guardrails**
 
@@ -217,7 +213,7 @@ The agent reaches the solver only through six plain Python functions. Each retur
 | get\_baseline(objective) | objective (co2 or cost) | Cost, CO₂, open sites and assignments for the best resilient network for that objective, plus the single-warehouse comparison |
 | list\_sites() | none | Site IDs, names, locations, capacities, status |
 | validate\_scenario(params) | Scenario object | Valid or not, and a list of field-level errors or warnings |
-| run\_scenario(params) | Scenario object | Solver status and gap, open sites, primary and backup per customer, cost, CO₂ (transport and warehouse), plus k-sweep results only if k\_sweep is true and the cost of avoiding CO₂ only if compare\_objectives is true |
+| run\_scenario(params) | Scenario object | Solver status and gap, open sites, primary and backup per customer, cost, CO₂ (transport and warehouse), and the cost of avoiding CO₂ when `compare_objectives` is true |
 | simulate\_failure(scenario\_id, site\_id) | Saved scenario, site to remove | Extra km, extra CO₂, customers moved, capacity overloads |
 | compare\_scenarios(ids) | List of saved scenario IDs | Side-by-side deltas in cost, CO₂, site count and resilience, plus a change list (below) |
 
@@ -227,22 +223,19 @@ The agent reaches the solver only through six plain Python functions. Each retur
 
 **Time-limited results.** If a solve stops at its time limit, the result says so and includes the gap, and the agent tells the user.
 
-## 8. Dashboard
+## 8. Current Streamlit interface
 
-A Streamlit app in a green and white theme. The left column is the chat with its history and quick-action buttons, plus the objective switch (CO₂ or cost), which shares one scenario state with the chat. The right column shows the What changed card, a row of KPI cards, and four views, all driven by the current scenario.
+A Streamlit app provides the current user interface. The sidebar contains the planning-objective selector and the **Confirm objective** and **Start over** controls. The main area contains the chat history and chat input, a KPI row after a successful solve, a Folium map, and an assignment table.
 
-&#91;embedded content: dashboard layout · chat, What changed card, KPI cards, 4 views\]
+The current interface does not include quick-action buttons, a separate failure view, or a k-curve view.
 
-The sketch shows the layout: chat and quick actions on the left, the What changed card above the KPI cards on the right, and the four views below.
-
-| View | Shows |
+| Current view | Shows |
 | --- | --- |
-| Network map | Open sites, customers, primary links (solid) and backup links (dashed), plus the center-of-gravity point |
-| k curve | Total cost and CO₂ for k = 2 to 5, with the recommended k marked; shown only after a k-sweep |
-| Failure view | Pick a site, see extra km, extra CO₂, customers moved and the capacity load on the remaining sites |
-| Scenario table | Saved scenarios side by side, each shown as a delta against the baseline |
+| Map | Customers sized by yearly demand, center of gravity, open warehouses, primary links, and backup links |
+| Assignment table | Customer IDs with their primary and backup warehouse assignments |
+| Scenarios table | Completed scenarios in the current session, with objective, change label, warehouse count, cost, and CO₂ |
 
-**What changed card.** After every run, a card above the KPI row lists the parameters changed (old value to new value), each KPI's change against the previous run and against the baseline (absolute and percent), the sites opened and closed, and how many customers got a new primary or backup, with an expandable table. If nothing differs it says No change. Each result also shows its solver status and gap.
+Each result shows its solver status and gap. Scenario changes are summarized in the scenarios table; there is no separate What changed card.
 
 **KPIs reported for every run**
 
@@ -250,10 +243,9 @@ The sketch shows the layout: chat and quick actions on the left, the What change
 - Total annual cost (€), also shown with CO₂ priced at P.
 - Number of open warehouses, and average distance to primary and to backup.
 - Price of resilience: cost and CO₂ of the resilient network minus the single center-of-gravity baseline.
-- Worst-case failure: the site whose loss adds the most CO₂, and its capacity utilization.
 - Cost of avoiding CO₂ (only when compare\_objectives is true): extra € per tonne, shown against P.
 
-**Report.** A Download report button, or a request in the chat (send me a report), builds one HTML report from the current run: the user's request, the What changed card, the KPI cards, the k curve if it was run, the network map as an image, the delta against the baseline, the assumptions, and the ORS attribution. All numbers come from the solver output. There is no email sending.
+**Report.** The **Generate report with LLM** button creates an optional report from the current session. The report is shown in the app and can be downloaded as HTML with the network map and ORS attribution. There is no email sending.
 
 **Look and feel.** The palette goes into .streamlit/config.toml and into the Plotly and Folium styling. The footer carries the ORS attribution.
 
@@ -272,7 +264,7 @@ The sketch shows the layout: chat and quick actions on the left, the What change
 
 1. Baseline: best resilient network for the default data.
 2. Largest site fails: close it and show the rerouted load.
-3. Electric fleet: emission factor cut by 60%, does the best k change?
+3. Electric fleet: emission factor cut by 60%, how do the cost and CO₂ results change?
 4. Demand +30%: is capacity still enough with failure cover?
 5. Tight backup limit (150 km): find where it becomes infeasible and what fixes it.
 6. Objective switch: solve for CO₂ and for cost, show which sites change and the cost of avoiding CO₂.
@@ -287,7 +279,7 @@ The sketch shows the layout: chat and quick actions on the left, the What change
 | Optimization | PuLP 2.9.0 with CBC, NumPy | The MIP, center of gravity |
 | Agent | LangGraph, LangChain, an OpenAI model, Pydantic | Scenario parsing, validation, routing, explanation |
 | Tool interface | Plain Python functions | The six tools in section 7 |
-| Interface | Streamlit with a green theme, Plotly, Folium | Chat, objective switch, KPIs, maps, curves, tables |
+| Interface | Streamlit with a green theme and Folium | Chat, objective switch, KPIs, map, assignment table, and scenario table |
 | Report | Python HTML template | The downloadable report |
 
 **APIs used.** OpenRouteService and Climatiq (each fetched once), and OpenAI for the agent. Keys are read from .env.
@@ -296,8 +288,8 @@ The sketch shows the layout: chat and quick actions on the left, the What change
 
 ```text
 green-warehouse/
-├── data/          customers.csv, candidate_sites.csv, emission_factors.csv, distance_matrix.csv (cached)
-├── src/           distances, emissions, baseline, model, simulate, tools, diff, report
+├── data/          customers.csv, candidate_sites.csv, emission_factors.csv, cache/ (cached distances)
+├── src/           distances, emissions, baseline, model, tools, and map helpers
 ├── agent/         schema.py, graph.py, prompts.py
 ├── assets/        UI icons and static media
 ├── reports/       generated report examples and exports
@@ -310,14 +302,14 @@ green-warehouse/
 
 ## 10. Build plan, acceptance criteria and risks
 
-Four phases; each ends with a check that must pass before the next begins. The project is complete after phase 4. Nothing outside this spec gets added.
+Four phases; each ends with a check that must pass before the next begins. The current implementation is covered by the tests and acceptance criteria below.
 
 | Phase | Deliverable | Done when |
 | --- | --- | --- |
 | 1. Data and distances | Clean customers, sites, factors and the cached ORS distance matrix | Validation rules in section 3 pass |
-| 2. Optimization core | run\_scenario with primary, backup and failure capacity, plus baseline, failure simulation, and the optional k-sweep and compare\_objectives, each with a CO₂ or cost objective | A hand-checked 5-customer, 3-site case matches an independent brute-force check under both objectives, and so does a second case where the objectives choose different sites |
+| 2. Optimization core | run\_scenario with primary, backup and failure capacity, plus baseline, failure simulation, and compare\_objectives, each with a CO₂ or cost objective | A hand-checked 5-customer, 3-site case matches an independent brute-force check under both objectives, and so does a second case where the objectives choose different sites |
 | 3. Scenario agent and chat | Pydantic schema, LangGraph agent, chat, change list | All 6 demo scenarios run end to end from plain English |
-| 4. Dashboard and report | Streamlit dashboard in the green theme, scenario table, downloadable report | A user completes a scenario and downloads the report without touching code |
+| 4. Interface and report | Streamlit chat, objective selector, KPI row, map, assignment/scenario tables, and downloadable report | A user completes a scenario and can inspect the result or download the report without touching code |
 
 **Acceptance criteria**
 
@@ -328,7 +320,7 @@ Four phases; each ends with a check that must pass before the next begins. The p
 - Re-running the same scenario returns identical results.
 - Switching the objective optimizes the chosen metric: the CO₂ objective never gives higher CO₂ than the cost objective, and the cost objective never gives higher cost than the CO₂ objective.
 - On the default data, the CO₂ objective and the cost objective open different sets of sites, and the failure-capacity constraint is binding (tripling capacity changes cost).
-- A follow-up such as "now force 4 warehouses" keeps all earlier settings and changes only k, and the What changed card lists exactly the parameters that differ.
+- A follow-up such as "now force 4 warehouses" keeps all earlier settings and changes only k.
 - An invalid request (for example an unknown site W99) gets a clarifying question, never a guess or a crash.
 - Failure simulation reports extra distance in km and extra CO₂ in t, as defined in section 4.
 - Every result shows its solver status and gap. If CBC is not available, the app shows a clear error and does not solve another way.
