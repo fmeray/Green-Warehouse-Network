@@ -1,8 +1,10 @@
 # Green Warehouse Network
 
+[▶ Watch the video demo](docs/Demo_GWN.mp4)
+
 Green Warehouse Network is a deterministic Germany-wide warehouse-network planner. Given 24 customers, 12 candidate warehouses, demand, capacity, distance, cost, and emissions inputs, it selects a resilient network with a primary and backup warehouse for every customer. Users can optimize for CO₂ or cost, test warehouse closures and operating assumptions, inspect k-curves, compare scenarios, and download an HTML report.
 
-The MVP combines a Streamlit dashboard, a LangGraph conversational agent, and a PuLP/CBC optimization model. See [the architecture decision](docs/stack_decision.md) for the rationale and [the GTM roadmap](docs/gtm_future_sprints.md) for the next experiments.
+The MVP combines a Streamlit dashboard, a LangGraph conversational agent, and a PuLP/CBC optimization model. See [the architecture decision](docs/stack_decision.md) for the rationale and [the GTM roadmap](gtm_future_sprints.md) for the next experiments.
 
 ## Setup
 
@@ -14,14 +16,29 @@ source .venv/bin/activate
 python3 -m pip install -r requirements.txt
 ```
 
-The dashboard's chat agent and report writer require an OpenAI API key. Create a local `.env` file (it is git-ignored):
+## Environment variables
+
+Secrets and local configuration belong in a `.env` file at the repository root. It is git-ignored and should never be committed. Copy [.env.example](.env.example) to `.env`, then add the keys available to you:
 
 ```dotenv
 OPENAI_API_KEY=your-key
 OPENAI_MODEL=gpt-4o-mini
+CLIMATIQ_API_KEY=your-key
+OpenRoute_API_KEY=your-key
 ```
 
-The distance cache is already prepared in `data/cache/`, so the normal run does not call a routing API. If the cache is unavailable, the application uses the documented haversine × 1.3 estimate and reports the distance provenance in the dashboard and report.
+The dashboard's chat agent and report writer require `OPENAI_API_KEY`. The deterministic planner can run without the external API keys. Climatiq and OpenRouteService keys are only needed when refreshing their respective data; they are not required for the normal cached/local workflow.
+
+## Data sources and tools
+
+| API or source | What it provides | When it runs | Without a key or data |
+| --- | --- | --- | --- |
+| OpenAI | Conversational intent parsing and optional HTML report writing | Live, when chat or report generation is used | The deterministic dashboard and solver remain available; chat/report features show a missing-key error |
+| Climatiq | Emission-factor catalogue searches and refreshed CO₂ factors | Refresh only; it does not run for every scenario | Existing values in `data/emission_factors.csv` remain in use |
+| OpenRouteService Matrix | Driving-HGV distances between customers and candidate warehouses | Refresh/preparation only; normal solves read `data/cache/` | With no cache, the planner uses haversine distance × 1.3 and reports the estimate provenance |
+| Local CSV files | Customers, candidate sites, and emission-factor fallback data | Every local run | The application requires these repository data files |
+
+The distance cache is intentionally git-ignored, so a fresh clone should expect the haversine fallback until a distance matrix is prepared. The solver never calls OpenRouteService during a normal run.
 
 ## Run
 
@@ -123,7 +140,7 @@ tests/       automated tests
 | `reports/` | Generated report examples and exports |
 | `docs/Spec.md` | Product and technical specification |
 | `docs/stack_decision.md` | Primary LangGraph versus secondary n8n decision |
-| `docs/gtm_future_sprints.md` | Three future GTM sprints after the MVP |
+| `gtm_future_sprints.md` | Three future GTM sprints after the MVP |
 | `docs/GWN_PPT.pdf` | Project presentation |
 
 ## Scenario API
