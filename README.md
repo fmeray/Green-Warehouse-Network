@@ -116,7 +116,7 @@ src/         deterministic domain logic, tools, solver, data access, and maps
 data/        source CSVs and runtime distance cache
 assets/      UI icons and other static media
 reports/     generated report examples and exports
-docs/        specification, architecture decisions, roadmap, and presentation
+docs/        specification, architecture decisions, roadmap, presentation, and demo
 tests/       automated tests
 ```
 
@@ -143,6 +143,7 @@ tests/       automated tests
 | `reports/` | Generated report examples and exports |
 | `docs/Spec.md` | Product and technical specification |
 | `docs/stack_decision.md` | Primary LangGraph versus secondary n8n decision |
+| `docs/Demo_GWN.mp4` | Walkthrough demo of the dashboard and scenario workflow |
 | `gtm_future_sprints.md` | Three future GTM sprints after the MVP |
 | `docs/GWN_PPT.pdf` | Project presentation |
 

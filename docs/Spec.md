@@ -301,7 +301,7 @@ green-warehouse/
 ├── agent/         schema.py, graph.py, prompts.py
 ├── assets/        UI icons and static media
 ├── reports/       generated report examples and exports
-├── docs/          specification, decisions, roadmap, and presentation
+├── docs/          specification, decisions, roadmap, presentation, and demo
 ├── tests/         solver, failure, diff and agent tests
 ├── .streamlit/    config.toml (green theme)
 ├── app.py         Streamlit dashboard
